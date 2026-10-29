@@ -1,0 +1,29 @@
+# Copy to .gitlab-ci.yml in your project, or add the include and the valystrum-sbom block to the one you have.
+# Replace acme with your organisation's slug in Valystrum. Setup: README.md.
+
+# Merge request pipelines for merge requests, branch pipelines otherwise, never both for one push.
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
+
+stages:
+  - test
+
+include:
+  # From the CI/CD Catalog on GitLab.com, at a released version. On another GitLab instance, see README.md.
+  - component: $CI_SERVER_FQDN/valystrum/valystrum-gitlab-ci/security-scan@1.0.0
+    inputs:
+      url: https://app.valystrum.io/api/v1/acme/pipeline/scan
+  - component: $CI_SERVER_FQDN/valystrum/valystrum-gitlab-ci/sbom@1.0.0
+    inputs:
+      url: https://app.valystrum.io/api/v1/acme/sbom/ingest
+      # This job uploads the whole project from the default branch: what it no longer lists is removed in Valystrum.
+      complete: true
+
+# The CycloneDX generator reads the INSTALLED dependency tree, not the lockfile alone: install it first.
+valystrum-sbom:
+  before_script:
+    - npm ci --ignore-scripts --no-audit --no-fund

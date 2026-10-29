@@ -1,0 +1,19 @@
+# This project's own pipeline: publishes its components to the GitLab CI/CD Catalog. A tag (a semantic version, such as
+# 1.0.0) runs the release job, and the release it creates is the version the Catalog lists; the Catalog takes only a
+# release made by the `release` keyword in a CI/CD job. The release notes are the tag's section of CHANGELOG.md.
+workflow:
+  rules:
+    - if: $CI_COMMIT_TAG
+
+release:
+  stage: deploy
+  image: registry.gitlab.com/gitlab-org/cli:v1.126.0@sha256:9ec98acf58abe1c9982fd1a5f544bd9a1a4ae5420c83c75b39eb8b08c93f621a
+  variables:
+    GLAB_ENABLE_CI_AUTOLOGIN: "true"
+  script:
+    - awk -v tag="$CI_COMMIT_TAG" '/^## /{ on = ($2 == tag); next } on' CHANGELOG.md > release-notes.md
+    - test -s release-notes.md || { echo "CHANGELOG.md has no section for $CI_COMMIT_TAG"; exit 1; }
+  release:
+    tag_name: $CI_COMMIT_TAG
+    name: $CI_COMMIT_TAG
+    description: ./release-notes.md
